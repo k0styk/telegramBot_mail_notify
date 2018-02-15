@@ -3,9 +3,7 @@ const path = require('path');
 
 class Config {
   constructor() {
-    const file = path.resolve(
-      `${__dirname}/config.json`
-    );
+    const file = path.resolve(`${__dirname}/config.json`);
 
     try {
       this.values = JSON.parse(fs.readFileSync(file));
