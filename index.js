@@ -112,171 +112,36 @@ var imap = new Imap({
 //   });
 // });
 
-imap.once('ready', function() {
-  var arr = [];
+var fs = require('fs'), fileStream;
 
-  imap.getBoxes(function(err, boxes) {
-      if (err) {
-          throw err
-      }
-      console.log(boxes);
-
-      var count = 0,
-          total = 0,
-          dump = [];
-
-      if (boxes['[Gmail]'] && boxes['[Gmail]'].children && boxes['[Gmail]'].children['All Mail']) {
-          openBoxes('[Gmail]/All Mail', function(arr) {
-
-              // Send it all to the front-end
-              result.google.dataDump = arr;
-              result.save(function(err) {
-                  if (err) {
-                      console.log("Saving Email Dump Error: " + err);
-                  } else {
-                      console.log("Saved email dump woohoo!");
-                      res.send(arr);
-                      // End IMAP connection
-                      imap.end();
-                  }
-              });
-
-          });
-
-      }
-  }); // end Imap getBoxes();
+openInbox(function(err, box) {
+  if (err) throw err;
+  imap.search([ 'UNSEEN', ['SINCE', 'May 20, 2010'] ], function(err, results) {
+    if (err) throw err;
+    var f = imap.fetch(results, { bodies: '' });
+    f.on('message', function(msg, seqno) {
+      console.log('Message #%d', seqno);
+      var prefix = '(#' + seqno + ') ';
+      msg.on('body', function(stream, info) {
+        console.log(prefix + 'Body');
+        stream.pipe(fs.createWriteStream('msg-' + seqno + '-body.txt'));
+      });
+      msg.once('attributes', function(attrs) {
+        console.log(prefix + 'Attributes: %s', inspect(attrs, false, 8));
+      });
+      msg.once('end', function() {
+        console.log(prefix + 'Finished');
+      });
+    });
+    f.once('error', function(err) {
+      console.log('Fetch error: ' + err);
+    });
+    f.once('end', function() {
+      console.log('Done fetching all messages!');
+      imap.end();
+    });
+  });
 });
-
-function openBoxes(key, callback) {
-  var arr = [];
-  imap.openBox(key, true, function(err, box) {
-
-      if (err) throw err;
-      var total = box.messages.total;
-      console.log("Total messages: " + total);
-
-      var f = imap.seq.fetch('1:' + total, {
-          struct: true
-      });
-
-      f.on('message', function(msg, seqno) {
-          var obj = {};
-
-
-          var prefix = '(#' + seqno + ') ';
-
-          obj.num = seqno;
-
-
-          msg.on('attributes', function(attrs) {
-              console.log("getting Msg");
-              getMsgByUID(attrs.uid, function(err, msg) {
-                  if (err)
-                      throw err;
-                  console.log(inspect(msg, false, 10));
-              });
-          });
-
-
-
-      });
-
-      f.once('error', function(err) {
-          console.log('Fetch error: ' + err);
-      });
-      f.once('end', function() {
-          console.log('Done fetching msgData!');
-      });
-  });
-
-  function checkEnd(arr, callback) {
-      console.log(arr);
-      for (var i = 0; i < arr.length; i++) {
-          arr[i].from = [];
-          var addStr = arr[i].header.from[0];
-          var thang = mimelib.parseAddresses(addStr);
-          for (var x = 0; x < thang.length; x++) {
-              arr[i].from.push(thang[x]);
-          }
-      }
-
-      // Clean up them damn arrays
-
-      callback(arr);
-  }
-}
-
-function findTextPart(struct) {
-  for (var i = 0, len = struct.length, r; i < len; ++i) {
-      if (Array.isArray(struct[i])) {
-          if (r = findTextPart(struct[i]))
-              return r;
-      } else if (struct[i].type === 'text' && (struct[i].subtype === 'plain' || struct[i].subtype === 'html'))
-          return [struct[i].partID, struct[i].type + '/' + struct[i].subtype];
-  }
-}
-
-function getMsgByUID(uid, cb, partID) {
-  console.log("getMsgByUID")
-  var f = imap.fetch(uid, partID ? {
-          bodies: ['HEADER.FIELDS (TO FROM SUBJECT)', partID[0]]
-      } : {
-          struct: true
-      }),
-      hadErr = false;
-
-  if (partID)
-      var msg = {
-          header: undefined,
-          body: '',
-          attrs: undefined
-      };
-
-  f.on('error', function(err) {
-      hadErr = true;
-      cb(err);
-  });
-
-  if (!partID) {
-      f.on('message', function(m) {
-          m.on('attributes', function(attrs) {
-              partID = findTextPart(attrs.struct);
-          });
-      });
-      f.on('end', function() {
-          if (hadErr)
-              return;
-          if (partID)
-              getMsgByUID(uid, cb, partID);
-          else
-              cb(new Error('No text part found for message UID ' + uid));
-      });
-  } else {
-      f.on('message', function(m) {
-          m.on('body', function(stream, info) {
-              var b = '';
-              stream.on('data', function(d) {
-                  b += d;
-              });
-              stream.on('end', function() {
-                  if (/^header/i.test(info.which))
-                      msg.header = Imap.parseHeader(b);
-                  else
-                      msg.body = b;
-              });
-          });
-          m.on('attributes', function(attrs) {
-              msg.attrs = attrs;
-              msg.contentType = partID[1];
-          });
-      });
-      f.on('end', function() {
-          if (hadErr)
-              return;
-          cb(undefined, msg);
-      });
-  }
-}
 
 imap.once('error', function(err) {
   console.log(err);
