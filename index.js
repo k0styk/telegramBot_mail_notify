@@ -9,9 +9,7 @@ var imap = new Imap({
   tls: true
 });
 
-// function openInbox(cb) {
-//   imap.openBox('INBOX', true, cb);
-// }
+
 
 // imap.once('ready', function() {
   
@@ -114,12 +112,42 @@ var imap = new Imap({
 
 var fs = require('fs'), fileStream;
 
-openInbox(function(err, box) {
-  if (err) throw err;
+imap.on('ready', () => {
+  imap.openBox('INBOX', true, function(err, box) {
+    if (err) throw err;
+    imap.on('mail', numNewMsg=>{
+      console.log(numNewMsg);
+      imap.search([ 'UNSEEN' ], function(err, results) {
+        if (err) throw err;
 
-  imap.on('mail', numNewMsg=>{
-    console.log(numNewMsg);
-  });
+        console.log(results);
+        var f = imap.fetch(results, {bodies:['HEADER.FIELDS (FROM)','TEXT']});
+        f.on('message', (msg,seqno)=>{
+          console.log('Message #%d', seqno);
+          var prefix = '(#' + seqno + ') ';
+          msg.on('body', function(stream, info) {
+            console.log(prefix + 'Body');
+            var buffer = '';
+            stream.on('data', function(chunk) {
+              buffer += chunk.toString('utf8');
+            });
+            stream.once('end', function() {
+              console.log(prefix + 'Parsed header: %s', inspect(Imap.parseHeader(buffer)));
+            });
+          });
+        });
+
+        f.once('error', function(err) {
+          console.log('Fetch error: ' + err);
+        });
+        f.once('end', function () {
+          console.log('Done fetching all messages!');
+        });
+
+      });
+    });
+});
+
 
   // imap.search([ 'UNSEEN' ], function(err, results) {
   //   if (err) throw err;
