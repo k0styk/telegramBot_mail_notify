@@ -1,57 +1,123 @@
-// import TelegramBot from 'node-telegram-bot-api';
+var Imap = require('imap'),
+    inspect = require('util').inspect;
 
-// const config = require('./config/config');
-// const bot = new TelegramBot(config.getValue('token'), {polling: true});
+var imap = new Imap({
+  user: 'bot.8ot@yandex.ru',
+  password: 'Lada2105!',
+  host: 'imap.yandex.ru',
+  port: 993,
+  tls: true
+});
 
-// bot.on('message', msg => {
-//     const {chat} = msg;
-//     bot.sendMessage(chat.id, 'Pong');
+function openInbox(cb) {
+  imap.openBox('INBOX', true, cb);
+}
+
+imap.once('ready', function() {
+  
+  openInbox(function(err, box) {
+    if (err) throw err;
+
+    var f = imap.seq.fetch(box.messages.total + ':*', { bodies: ['HEADER.FIELDS (FROM)','TEXT'] });
+    
+    f.on('message', function(msg, seqno) {
+      
+      console.log('Message #%d', seqno);
+
+      var prefix = '(#' + seqno + ') ';
+
+      msg.on('body', function(stream, info) {
+        
+        console.log(info);
+        
+        if (info.which === 'TEXT') {
+          
+          console.log(prefix + 'Body [%s] found, %d total bytes', inspect(info.which), info.size);
+          
+        }
+        var buffer = '', count = 0;
+        
+        stream.on('data', function(chunk) {
+          count += chunk.length;
+          buffer += chunk.toString('utf8');
+          console.log(buffer);
+          if (info.which === 'TEXT')
+            console.log(prefix + 'Body [%s] (%d/%d)', inspect(info.which), count, info.size);
+        });
+        
+        stream.once('end', function() {
+          if (info.which !== 'TEXT')
+            console.log(prefix + 'Parsed header: %s', inspect(Imap.parseHeader(buffer)));
+          else
+            console.log(prefix + 'Body [%s] Finished', inspect(info.which));
+        });
+      });
+      
+      msg.once('attributes', function(attrs) {
+        console.log(prefix + 'Attributes: %s', inspect(attrs, false, 8));
+      });
+      
+      msg.once('end', function() {
+        console.log(prefix + 'Finished');
+      });
+    });
+    
+    f.once('error', function(err) {
+      console.log('Fetch error: ' + err);
+    });
+    
+    f.once('end', function() {
+      console.log('Done fetching all messages!');
+      imap.end();
+    });
+  });
+});
+
+// openInbox(function(err, box) {
+//   if (err) throw err;
+//   var f = imap.seq.fetch(box.messages.total + ':*', { bodies: ['HEADER.FIELDS (FROM)','TEXT'] });
+//   f.on('message', function(msg, seqno) {
+//     console.log('Message #%d', seqno);
+//     var prefix = '(#' + seqno + ') ';
+//     msg.on('body', function(stream, info) {
+//       if (info.which === 'TEXT')
+//         console.log(prefix + 'Body [%s] found, %d total bytes', inspect(info.which), info.size);
+//       var buffer = '', count = 0;
+//       stream.on('data', function(chunk) {
+//         count += chunk.length;
+//         buffer += chunk.toString('utf8');
+//         if (info.which === 'TEXT')
+//           console.log(prefix + 'Body [%s] (%d/%d)', inspect(info.which), count, info.size);
+//       });
+//       stream.once('end', function() {
+//         if (info.which !== 'TEXT')
+//           console.log(prefix + 'Parsed header: %s', inspect(Imap.parseHeader(buffer)));
+//         else
+//           console.log(prefix + 'Body [%s] Finished', inspect(info.which));
+//       });
+//     });
+//     msg.once('attributes', function(attrs) {
+//       console.log(prefix + 'Attributes: %s', inspect(attrs, false, 8));
+//     });
+//     msg.once('end', function() {
+//       console.log(prefix + 'Finished');
+//     });
+//   });
+//   f.once('error', function(err) {
+//     console.log('Fetch error: ' + err);
+//   });
+//   f.once('end', function() {
+//     console.log('Done fetching all messages!');
+//     imap.end();
+//   });
 // });
 
-const MailListener = require("mail-listener2");
-
-const mailListener = new MailListener({
-  username: "bot.8ot@yandex.ru",
-  password: "Lada2105!",
-  host: "imap.yandex.ru",
-  port: 993,
-  tls: true,
-  connTimeout: 10000,
-  authTimeout: 5000,
-  debug: console.log,
-  tlsOptions: { rejectUnauthorized: false },
-  mailbox: "INBOX",
-  searchFilter: ["UNSEEN", "FLAGGED"],
-  markSeen: true,
-  fetchUnreadOnStart: true,
-  mailParserOptions: {streamAttachments: true},
-  attachments: true,
-  attachmentOptions: { directory: "attachments/" }
-});
-
-mailListener.start(); // start listening
-
-// stop listening
-//mailListener.stop();
-
-mailListener.on("server:connected", function(){
-  console.log("imapConnected");
-});
-
-mailListener.on("server:disconnected", function(){
-  console.log("imapDisconnected");
-});
-
-mailListener.on("error", function(err){
+imap.once('error', function(err) {
   console.log(err);
 });
 
-mailListener.on("mail", function(mail, seqno, attributes){
-  // do something with mail object including attachments
-  console.log("emailParsed", mail);
-  // mail processing code goes here
+imap.once('end', function() {
+  console.log('Connection ended');
 });
 
-mailListener.on("attachment", function(attachment){
-  console.log(attachment.path);
-});
+imap.connect();
