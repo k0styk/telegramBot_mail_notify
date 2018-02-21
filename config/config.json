@@ -1,3 +1,8 @@
 {
-    "token": "450726761:AAFioTKtyiNm0N1YEcZpp4SJRReEbr_wKPI"
+    "token": "450726761:AAFioTKtyiNm0N1YEcZpp4SJRReEbr_wKPI",
+    "user": "bot.8ot@yandex.ru",
+    "password": "Lada2105!",
+    "host": "imap.yandex.ru",
+    "port": 993,
+    "tls": true
 }

@@ -1,14 +1,17 @@
+const config = require('./config/config');
 var Imap = require('imap');
 var inspect = require('util').inspect;
 var fs = require('fs'), fileStream;
 
-var imap = new Imap({
-  user: 'bot.8ot@yandex.ru',
-  password: 'Lada2105!',
-  host: 'imap.yandex.ru',
-  port: 993,
-  tls: true
-});
+const imapOptions = {
+  user: config.getValue('user'),
+  password: config.getValue('password'),
+  host: config.getValue('host'),
+  port: config.getValue('port'),
+  tls: config.getValue('tls')
+}
+
+var imap = new Imap(imapOptions);
 
 
 var _from;
@@ -16,6 +19,15 @@ var _subject;
 function search(tag) {
   imap.search([tag], function (err, results) {
     if (err) throw err;
+
+    // mark as seen
+    // imap.setFlags(results, ['\\Seen'], function (err) {
+    //   if (!err) {
+    //     console.log("marked as read");
+    //   } else {
+    //     console.log(JSON.stringify(err, null, 2));
+    //   }
+    // });
 
     var f = imap.fetch(results, { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)', 'TEXT'], struct: true, markSeen:true});
     f.on('message', (msg, seqno) => {
