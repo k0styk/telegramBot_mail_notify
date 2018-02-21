@@ -17,7 +17,7 @@ function search(tag) {
   imap.search([tag], function (err, results) {
     if (err) throw err;
 
-    var f = imap.fetch(results, { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)', 'TEXT'] });
+    var f = imap.fetch(results, { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)', 'TEXT'], struct: true, markSeen:true});
     f.on('message', (msg, seqno) => {
       console.log('Message #%d', seqno);
       var prefix = '(#' + seqno + ') ';
@@ -28,13 +28,16 @@ function search(tag) {
           buffer += chunk.toString('utf8');
         });
         stream.once('end', function () {
-          var parsed = inspect(Imap.parseHeader(buffer));
-          if(~parsed.indexOf('from')) {
-            _from = parse_fields(parsed);
-          } else if(~parsed.indexOf('subject')) {
-            _subject = parse_fields(parsed);
+          if(info.which === 'TEXT') {  
+            let buff = new Buffer(buffer, 'base64');  
+            let text = buff.toString('ascii');
+            console.log(text);
+          } else {
+            var parsed = Imap.parseHeader(buffer);
+            if (parsed.from) _from = parsed.from;
+            if (parsed.subject) _subject = parsed.subject;
+            console.log(parsed);
           }
-          console.log(prefix + 'Parsed header: %s', parsed);
         });
       });
     });
@@ -76,10 +79,4 @@ imap.connect();
 function printAll() {
   console.log("From: %s",_from);
   console.log("Subject: %s",_subject);
-}
-
-function parse_fields(str) {
-  const newStr = str.replace(/{|}/g,'').trim();
-  const result = newStr.split(':')[1].replace(/\[|\]|\'/g,'').trim();
-  return result;
 }
