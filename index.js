@@ -66,7 +66,7 @@ function search(tag) {
 }
 
 imap.on('ready', () => {
-  imap.openBox('INBOX', true, function (err, box) {
+  imap.openBox('INBOX', false, function (err, box) {
     if (err) throw err;
     search('UNSEEN');
 
