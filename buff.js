@@ -94,50 +94,11 @@ function processMessage(msg, seqno) {
 //     bot.sendMessage(chat.id, 'Pong');
 // });
 
-// const MailListener = require("mail-listener2");
 
-// const mailListener = new MailListener({
-//   username: "bot.8ot@yandex.ru",
-//   password: "Lada2105!",
-//   host: "imap.yandex.ru",
-//   port: 993,
-//   tls: true,
-//   connTimeout: 10000,
-//   authTimeout: 5000,
-//   debug: console.log,
-//   tlsOptions: { rejectUnauthorized: false },
-//   mailbox: "INBOX",
-//   searchFilter: ["UNSEEN", "FLAGGED"],
-//   markSeen: true,
-//   fetchUnreadOnStart: true,
-//   mailParserOptions: {streamAttachments: true},
-//   attachments: true,
-//   attachmentOptions: { directory: "attachments/" }
-// });
 
-// mailListener.start(); // start listening
-
-// // stop listening
-// //mailListener.stop();
-
-// mailListener.on("server:connected", function(){
-//   console.log("imapConnected");
-// });
-
-// mailListener.on("server:disconnected", function(){
-//   console.log("imapDisconnected");
-// });
-
-// mailListener.on("error", function(err){
-//   console.log(err);
-// });
-
-// mailListener.on("mail", function(mail, seqno, attributes){
-//   // do something with mail object including attachments
-//   console.log("emailParsed", mail);
-//   // mail processing code goes here
-// });
-
-// mailListener.on("attachment", function(attachment){
-//   console.log(attachment.path);
-// });
+// firefox
+{/* <div id="pdf">
+  <object width="400" height="500" type="application/pdf" data="/my_pdf.pdf?#zoom=85&scrollbar=0&toolbar=0&navpanes=0" id="pdf_content">
+    <p>Insert your error message here, if the PDF cannot be displayed.</p>
+  </object>
+</div> */}
