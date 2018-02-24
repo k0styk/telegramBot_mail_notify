@@ -1,7 +1,5 @@
 const config = require('./config/config');
-var Imap = require('imap');
-var inspect = require('util').inspect;
-var fs = require('fs'), fileStream;
+const Imap = require('imap');
 
 const imapOptions = {
   user: config.getValue('user'),
@@ -11,44 +9,43 @@ const imapOptions = {
   tls: config.getValue('tls')
 }
 
-var imap = new Imap(imapOptions);
+const imap = new Imap(imapOptions);
 
+let _from = [];
+let _subject = [];
+let _to = [];
+let _body = []; 
 
-var _from;
-var _subject;
-function search(tag) {
+function search(tag, markSeen = true) {
   imap.search([tag], function (err, results) {
     if (err) throw err;
 
-    // mark as seen
-    // imap.setFlags(results, ['\\Seen'], function (err) {
-    //   if (!err) {
-    //     console.log("marked as read");
-    //   } else {
-    //     console.log(JSON.stringify(err, null, 2));
-    //   }
-    // });
+    if (markSeen) {
+        imap.setFlags(results, ['\\Seen'], function (err) {
+            if (err) {
+                console.log(JSON.stringify(err, null, 2));
+            }
+        });
+    }
 
-    var f = imap.fetch(results, { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)', 'TEXT'], struct: true, markSeen:true});
+    let f = imap.fetch(results, { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)', 'TEXT'], struct: true});
     f.on('message', (msg, seqno) => {
-      console.log('Message #%d', seqno);
-      var prefix = '(#' + seqno + ') ';
+
       msg.on('body', function (stream, info) {
-        console.log(prefix + 'Body');
-        var buffer = '';
+
+        let buffer = '';
         stream.on('data', function (chunk) {
           buffer += chunk.toString('utf8');
         });
+
         stream.once('end', function () {
           if(info.which === 'TEXT') {  
             let buff = new Buffer(buffer, 'base64');  
-            let text = buff.toString('ascii');
-            console.log(text);
+            _body.push(buff.toString('ascii'));
           } else {
-            var parsed = Imap.parseHeader(buffer);
-            if (parsed.from) _from = parsed.from;
-            if (parsed.subject) _subject = parsed.subject;
-            console.log(parsed);
+            let parsed = Imap.parseHeader(buffer);
+            if (parsed.from) _from.push(parsed.from);
+            if (parsed.subject) _subject.push(parsed.subject);
           }
         });
       });
@@ -57,21 +54,19 @@ function search(tag) {
       console.log('Fetch error: ' + err);
     });
     f.once('end', function () {
-      console.log('Done fetching all messages!');
-
-      printAll();
-      imap.end();
+        printAll();
+        imap.end();
     });
+
   });
 }
 
 imap.on('ready', () => {
   imap.openBox('INBOX', false, function (err, box) {
     if (err) throw err;
-    search('UNSEEN');
+    search('UNSEEN', false);
 
     imap.on('mail', numNewMsg => {
-      console.log(numNewMsg);
       search('UNSEEN');
     });
   });
@@ -85,10 +80,17 @@ imap.once('end', function() {
   console.log('Connection ended');
 });
 
-imap.connect();
-
+function connect(options) {
+    imap.connect();
+}
 
 function printAll() {
-  console.log("From: %s",_from);
-  console.log("Subject: %s",_subject);
+  console.log("From:");
+  console.log(_from);
+  console.log("To:");
+  console.log(_to);
+  console.log("Subject:");
+  console.log(_subject);
+  console.log("Body:");
+  console.log(_body);
 }
