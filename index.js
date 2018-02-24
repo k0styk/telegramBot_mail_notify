@@ -1,5 +1,7 @@
 const config = require('./config/config');
 const Imap = require('imap');
+import TelegramBot from 'node-telegram-bot-api';
+const bot = new TelegramBot(config.getValue('token'), {polling: true});
 
 const imapOptions = {
   user: config.getValue('user'),
@@ -64,6 +66,7 @@ function search(tag, markSeen = true) {
 imap.on('ready', () => {
   imap.openBox('INBOX', false, function (err, box) {
     if (err) throw err;
+    // delete false debug option
     search('UNSEEN', false);
 
     imap.on('mail', numNewMsg => {
@@ -80,8 +83,8 @@ imap.once('end', function() {
   console.log('Connection ended');
 });
 
-function connect(options) {
-    imap.connect();
+function parseBody() {
+
 }
 
 function printAll() {
@@ -94,3 +97,10 @@ function printAll() {
   console.log("Body:");
   console.log(_body);
 }
+
+imap.connect();
+
+bot.on('message', msg => {
+    const {chat} = msg;
+    bot.sendMessage(chat.id, 'Pong');
+});
