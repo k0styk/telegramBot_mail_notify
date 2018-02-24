@@ -98,9 +98,27 @@ function printAll() {
   console.log(_body);
 }
 
-imap.connect();
+function startListening() {
+  imap.connect();
+}
+
+function stopListening() {
+  imap.end();
+}
+
+console.log(Imap);
 
 bot.on('message', msg => {
-    const {chat} = msg;
-    bot.sendMessage(chat.id, 'Pong');
+    // const {chat} = msg;
+    // bot.sendMessage(chat.id, 'Pong');
+});
+
+bot.onText(/\/start (.+)/,(msg, [source, match]) => {
+  const {chat} = msg;
+  // startListening();
+});
+
+bot.onText(/\/stop (.+)/,(msg, [source, match]) => {
+  const {chat} = msg;
+  // stopListening();
 });
