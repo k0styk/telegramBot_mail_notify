@@ -1,7 +1,7 @@
 const config = require('./config/config');
 const Imap = require('imap');
-import TelegramBot from 'node-telegram-bot-api';
-const bot = new TelegramBot(config.getValue('token'), {polling: true});
+const TelegramBot = require('node-telegram-bot-api');
+// const bot = new TelegramBot(config.getValue('token'), {polling: true});
 
 const imapOptions = {
   user: config.getValue('user'),
@@ -56,7 +56,7 @@ function search(tag, markSeen = true) {
       console.log('Fetch error: ' + err);
     });
     f.once('end', function () {
-        printAll();
+        // printAll();
         imap.end();
     });
 
@@ -106,19 +106,21 @@ function stopListening() {
   imap.end();
 }
 
-console.log(Imap);
+imap.connect();
 
-bot.on('message', msg => {
-    // const {chat} = msg;
-    // bot.sendMessage(chat.id, 'Pong');
-});
 
-bot.onText(/\/start (.+)/,(msg, [source, match]) => {
-  const {chat} = msg;
-  // startListening();
-});
 
-bot.onText(/\/stop (.+)/,(msg, [source, match]) => {
-  const {chat} = msg;
-  // stopListening();
-});
+// bot.on('message', msg => {
+//     // const {chat} = msg;
+//     // bot.sendMessage(chat.id, 'Pong');
+// });
+
+// bot.onText(/\/start (.+)/,(msg, [source, match]) => {
+//   const {chat} = msg;
+//   // startListening();
+// });
+
+// bot.onText(/\/stop (.+)/,(msg, [source, match]) => {
+//   const {chat} = msg;
+//   // stopListening();
+// });
