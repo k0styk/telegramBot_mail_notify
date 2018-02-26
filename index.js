@@ -1,7 +1,7 @@
 const config = require('./config/config');
 const Imap = require('imap');
 const TelegramBot = require('node-telegram-bot-api');
-// const bot = new TelegramBot(config.getValue('token'), {polling: true});
+const bot = new TelegramBot(config.getValue('token'), {polling: true});
 
 const imapOptions = {
   user: config.getValue('user'),
@@ -57,7 +57,7 @@ function search(tag, markSeen = true) {
     });
     f.once('end', function () {
         // printAll();
-        imap.end();
+        // imap.end();
     });
 
   });
@@ -106,21 +106,51 @@ function stopListening() {
   imap.end();
 }
 
-imap.connect();
+function sendDataToChat() {
+  if(meow) {
+    const resString = getMessage();
 
+    bot.sendMessage(meow, resString);
+  }
+}
 
+function getMessage() {
+  return _from+'\n'+_subject+'\n'+'rot ebal suka';
 
-// bot.on('message', msg => {
-//     // const {chat} = msg;
-//     // bot.sendMessage(chat.id, 'Pong');
-// });
+}
 
-// bot.onText(/\/start (.+)/,(msg, [source, match]) => {
-//   const {chat} = msg;
-//   // startListening();
-// });
+bot.on('message', msg => {
+    // const {chat} = msg;
+    //console.log(msg);
+    // bot.sendMessage(chat.id, 'Pong');
+});
 
-// bot.onText(/\/stop (.+)/,(msg, [source, match]) => {
-//   const {chat} = msg;
-//   // stopListening();
-// });
+let meow = null;
+
+bot.onText(/\/start/,(msg, [source, match]) => {
+  const {chat} = msg;
+  meow = chat.id;
+});
+
+bot.onText(/\/startlisten/,(msg, [source, match]) => {
+  startListening();
+});
+
+bot.onText(/\/echo (.+)/, (msg, match) => {
+  const chatId = msg.chat.id;
+  const resp = match[1];
+  
+  console.log(chatId);
+});
+
+bot.onText(/\/stop/,(msg, [source, match]) => {
+  const {chat} = msg;
+  stopListening();
+});
+
+bot.onText(/\/show/,(msg, [source, match]) => {
+  const {chat} = msg;
+  meow = chat.id;
+
+  sendDataToChat();
+});
