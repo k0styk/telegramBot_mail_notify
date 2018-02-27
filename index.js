@@ -2,6 +2,7 @@ const config = require('./config/config');
 const Imap = require('imap');
 const TelegramBot = require('node-telegram-bot-api');
 const bot = new TelegramBot(config.getValue('token'), {polling: true});
+const fs = require('fs');
 
 const imapOptions = {
   user: config.getValue('user'),
@@ -37,13 +38,13 @@ function search(tag, markSeen = true) {
 
         let buffer = '';
         stream.on('data', function (chunk) {
-          buffer += chunk.toString('utf8');
+          buffer += chunk.toString('utf-8');
         });
 
         stream.once('end', function () {
           if(info.which === 'TEXT') {  
             let buff = new Buffer(buffer, 'base64');  
-            _body.push(buff.toString('ascii'));
+            _body.push(buff.toString('utf-8'));
           } else {
             let parsed = Imap.parseHeader(buffer);
             if (parsed.from) _from.push(parsed.from);
@@ -52,12 +53,15 @@ function search(tag, markSeen = true) {
         });
       });
     });
+
     f.once('error', function (err) {
       console.log('Fetch error: ' + err);
     });
+
     f.once('end', function () {
-        // printAll();
+        printAll();
         // imap.end();
+        // sendDataToChat();
     });
 
   });
@@ -96,6 +100,7 @@ function printAll() {
   console.log(_subject);
   console.log("Body:");
   console.log(_body);
+  //fs.writeFile('body_utf.txt',_body[0],'utf-8');
 }
 
 function startListening() {
@@ -115,32 +120,23 @@ function sendDataToChat() {
 }
 
 function getMessage() {
-  return _from+'\n'+_subject+'\n'+'rot ebal suka';
+  return _from[0]+'\n'+_subject[0]+'\n'+'rot ebal suka';
 
 }
 
-bot.on('message', msg => {
-    // const {chat} = msg;
-    //console.log(msg);
-    // bot.sendMessage(chat.id, 'Pong');
-});
+bot.on('message', msg => {});
+
+
 
 let meow = null;
 
 bot.onText(/\/start/,(msg, [source, match]) => {
-  const {chat} = msg;
-  meow = chat.id;
+  bot.sendMessage(msg.chat.id, '... WELCOME ...');
 });
 
 bot.onText(/\/startlisten/,(msg, [source, match]) => {
+  meow = msg.chat.id;
   startListening();
-});
-
-bot.onText(/\/echo (.+)/, (msg, match) => {
-  const chatId = msg.chat.id;
-  const resp = match[1];
-  
-  console.log(chatId);
 });
 
 bot.onText(/\/stop/,(msg, [source, match]) => {
@@ -148,9 +144,23 @@ bot.onText(/\/stop/,(msg, [source, match]) => {
   stopListening();
 });
 
-bot.onText(/\/show/,(msg, [source, match]) => {
-  const {chat} = msg;
-  meow = chat.id;
+bot.onText(/\/show (.+)/,(msg, [source, match]) => {
+  if(match==='data') {
+    const {chat} = msg;
 
-  sendDataToChat();
+    meow = chat.id;
+    sendDataToChat();
+  }
+});
+
+bot.onText(/\/try/,(msg, [source, match]) => {
+  const {chat} = msg;
+  fs.readFile('body_utf.txt','utf-8', (err,data) =>{
+    console.log(data);
+    console.log("################################################################");
+    const liCode = /<li class="item">.+?<\/li>/;
+    liCode.lastIndex = 1500;
+    const ex = liCode.exec(data);
+    console.log(ex);
+  });
 });
