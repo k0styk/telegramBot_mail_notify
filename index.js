@@ -113,53 +113,104 @@ function stopListening() {
 
 function sendDataToChat() {
   if(meow) {
-    const resString = getMessage();
-
+    const arr = getMessage();
+    const n = '\n';
+    let resString = arr[0];
+    for(let i=1;i<arr.length;i++){
+      resString = resString + n + arr[i][0]+' '+arr[i][1]+n;
+    }
     bot.sendMessage(meow, resString);
   }
 }
 
-function getMessage() {
-  fs.readFile('body_utf.txt', 'utf-8', (err, data) => {
-    const ticketExp = /<div style="font-size:17px; color:#0080c6; font-weight:bold; margin-bottom:10px">.+?<\/div>/i;
-    const defaultTickets = ['Новое сообщение от провайдера', 'Новое сообщение от клиента', 'Уведомление о новой задаче', 'Запрос закрыт сотрудником'];
-    const ticketRaw = data.match(ticketExp);
-    const ticket = ticketRaw[0].replace(/(<div .+?>)|(<\/div>)/g, '').trim();
+function getMessage(data) {
+  const ticketExp = /<div style="font-size:17px; color:#0080c6; font-weight:bold; margin-bottom:10px">.+?<\/div>/i;
+  const defaultTickets = ['Новое сообщение от провайдера', 'Новое сообщение от клиента', 'Уведомление о новой задаче', 'Запрос закрыт сотрудником'];
+  const ticketRaw = data.match(ticketExp);
+  const ticket = ticketRaw[0].replace(/(<div .+?>)|(<\/div>)/g, '').trim();
+  const defaultString = 'Сообщение:';
+  const myObj = [];
+  myObj.push(ticket);
 
+  // Сообщение от провайдера
+  if (ticket === defaultTickets[0]) {
     const liExp = /<li class="item">.+?<\/li>/ig;
     const textExp = /<p class="ticket">.+?<\/p>/ig;
 
+    const listsRaw = data.match(liExp);
+    const textRaw = data.match(textExp);
 
-    if (ticket === defaultTickets[0]) {
-      const defaultString = 'Сообщение:';
-      const myObj = [];
-      const listsRaw = data.match(liExp);
-      const textRaw = data.match(textExp);
+    for (let i = 0; i < listsRaw.length - 1; i++) {
+      let regEx1 = /<b>.+?<\/b>/;
+      let regEx2 = /<\/b>.+?<\/li>/;
+      let str1 = listsRaw[i].match(regEx1)[0].replace(/(<b>)|(<\/b>)/g, '').trim();
+      let str2 = listsRaw[i].match(regEx2)[0].replace(/(<\/b>)|(<\/li>)/g, '').trim();
 
-      for (let i = 0; i < listsRaw.length - 1; i++) {
-        let regEx1 = /<b>.+?<\/b>/;
-        let regEx2 = /<\/b>.+?<\/li>/;
-        let str1 = listsRaw[i].match(regEx1)[0].replace(/(<b>)|(<\/b>)/g, '').trim();
-        let str2 = listsRaw[i].match(regEx2)[0].replace(/(<\/b>)|(<\/li>)/g, '').trim();
-
-        myObj.push([str1, str2]);
-      }
-
-      const textRaw1 = textRaw[0].replace(/(<p class="ticket">)|(<\/p>)/g, '').trim();
-      const text = textRaw1.replace(/<br\/>/g, '\n').trim();
-      myObj.push(defaultString,text);
-      return myObj;
-    } else if (ticket === defaultTickets[1]) {
-
-    } else if (ticket === defaultTickets[2]) {
-
-    } else if (ticket === defaultTickets[3]) {
-
-    } else {
-      // suka blet
-      return ';(';
+      myObj.push([str1, str2]);
     }
-  });
+    const textRaw1 = textRaw[0].replace(/(<p class="ticket">)|(<\/p>)/g, '').trim();
+    const text = textRaw1.replace(/<br\/>/g, '\n').trim();
+
+    myObj.push(defaultString, text);
+    return myObj;
+  } // Сообщение от клиента
+  else if (ticket === defaultTickets[1]) {
+    const p1Exp = /<p class="data">.+?<\/p>/ig;
+    const p2Exp = /<p class="thread">.+?<\/p>/ig;
+    const textExp = /<p class="ticket">.+?<\/p>/ig;
+    const listsRaw = data.match(p1Exp);
+    const textRaw = data.match(textExp);
+    listsRaw.push(data.match(p2Exp)[0]);
+    const listData = listsRaw.filter((val) => {
+      return !~val.indexOf('Сообщение');
+    });
+
+    for (let i = 0; i < listData.length; i++) {
+      let regEx1 = /<b>.+?<\/b>/;
+      let regEx2 = /<\/b>.+?<\/p>/;
+      let str1 = listData[i].match(regEx1)[0].replace(/(<b>)|(<\/b>)/g, '').trim();
+      let str2 = listData[i].match(regEx2)[0].replace(/(<\/b>)|(<\/p>)/g, '').trim();
+      myObj.push([str1, str2]);
+    }
+    const textRaw1 = textRaw[0].replace(/(<p class="ticket">)|(<\/p>)/g, '').trim();
+    const text = textRaw1.replace(/<br\/>/g, '\n').trim();
+
+    myObj.push(defaultString, text);
+    return myObj;
+  } // уведомление о новой задаче
+  else if (ticket === defaultTickets[2]) {
+    const p1Exp = /<p><b>.+?<\/p>/ig;
+    const listsRaw = data.match(p1Exp);
+    const listData = listsRaw.filter((val) => {
+      return ~val.indexOf('Описание задачи');
+    });
+    let regEx1 = /<b>.+?<\/b>/;
+    let regEx2 = /<\/b>.+?<\/p>/;
+    let str1 = listsRaw[i].match(regEx1)[0].replace(/(<b>)|(<\/b>)/g, '').trim();
+    let str2 = listsRaw[i].match(regEx2)[0].replace(/(<\/b>)|(<\/p>)/g, '').trim();
+    myObj.push([str1, str2]);
+
+    return myObj;
+  } // Запрос закрыт сотрудником
+  else if (ticket === defaultTickets[3]) {
+    const p1Exp = /<p class="data">.+?<\/p>/ig;
+    const listsRaw = data.match(p1Exp);
+    listsRaw.push(data.match(p2Exp)[0]);
+    listsRaw.splice(0, 1);
+
+    for (let i = 0; i < listsRaw.length; i++) {
+      let regEx1 = /<b>.+?<\/b>/;
+      let regEx2 = /<\/b>.+?<\/p>/;
+      let str1 = listsRaw[i].match(regEx1)[0].replace(/(<b>)|(<\/b>)/g, '').trim();
+      let str2 = listsRaw[i].match(regEx2)[0].replace(/(<\/b>)|(<\/p>)/g, '').trim();
+      myObj.push([str1, str2]);
+    }
+    return myObj;
+  } // nothing
+  else {
+    myObj.push(';(');
+    return myObj;
+  }
 }
 
 bot.on('message', msg => {});
@@ -182,6 +233,6 @@ bot.onText(/\/stop/,(msg, [source, match]) => {
 
 bot.onText(/\/try/,(msg, [source, match]) => {
   const {chat} = msg;
-  let message = getMessage();
-  console.log(message);
+  fs.readFile('body_utf.txt', 'utf-8', (err, data) => {
+    sendDataToChat(data);});
 });
