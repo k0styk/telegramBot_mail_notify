@@ -120,13 +120,49 @@ function sendDataToChat() {
 }
 
 function getMessage() {
-  return _from[0]+'\n'+_subject[0]+'\n'+'rot ebal suka';
+  fs.readFile('body_utf.txt', 'utf-8', (err, data) => {
+    const ticketExp = /<div style="font-size:17px; color:#0080c6; font-weight:bold; margin-bottom:10px">.+?<\/div>/i;
+    const defaultTickets = ['Новое сообщение от провайдера', 'Новое сообщение от клиента', 'Уведомление о новой задаче', 'Запрос закрыт сотрудником'];
+    const ticketRaw = data.match(ticketExp);
+    const ticket = ticketRaw[0].replace(/(<div .+?>)|(<\/div>)/g, '').trim();
 
+    const liExp = /<li class="item">.+?<\/li>/ig;
+    const textExp = /<p class="ticket">.+?<\/p>/ig;
+
+
+    if (ticket === defaultTickets[0]) {
+      const defaultString = 'Сообщение:';
+      const myObj = [];
+      const listsRaw = data.match(liExp);
+      const textRaw = data.match(textExp);
+
+      for (let i = 0; i < listsRaw.length - 1; i++) {
+        let regEx1 = /<b>.+?<\/b>/;
+        let regEx2 = /<\/b>.+?<\/li>/;
+        let str1 = listsRaw[i].match(regEx1)[0].replace(/(<b>)|(<\/b>)/g, '').trim();
+        let str2 = listsRaw[i].match(regEx2)[0].replace(/(<\/b>)|(<\/li>)/g, '').trim();
+
+        myObj.push([str1, str2]);
+      }
+
+      const textRaw1 = textRaw[0].replace(/(<p class="ticket">)|(<\/p>)/g, '').trim();
+      const text = textRaw1.replace(/<br\/>/g, '\n').trim();
+
+      return myObj;
+    } else if (ticket === defaultTickets[1]) {
+
+    } else if (ticket === defaultTickets[2]) {
+
+    } else if (ticket === defaultTickets[3]) {
+
+    } else {
+      // suka blet
+      return ';(';
+    }
+  });
 }
 
 bot.on('message', msg => {});
-
-
 
 let meow = null;
 
@@ -144,41 +180,8 @@ bot.onText(/\/stop/,(msg, [source, match]) => {
   stopListening();
 });
 
-bot.onText(/\/show (.+)/,(msg, [source, match]) => {
-  if(match==='data') {
-    const {chat} = msg;
-
-    meow = chat.id;
-    sendDataToChat();
-  }
-});
-
 bot.onText(/\/try/,(msg, [source, match]) => {
   const {chat} = msg;
-  fs.readFile('body_utf.txt','utf-8', (err,data) =>{
-    console.log("################################################################");
-    const liExp = /<li class="item">.+?<\/li>/ig;
-    const textExp = /<p class="ticket">.+?<\/p>/ig; 
-    const defaultString = 'Сообщение:';
-    const myObj = [];
-
-    const listsRaw = data.match(liExp);
-    const textRaw = data.match(textExp);
-
-    for (let i = 0; i < listsRaw.length - 1; i++) {
-      let regEx1 = /<b>.+?<\/b>/;
-      let regEx2 = /<\/b>.+?<\/li>/;
-      let str1 = listsRaw[i].match(regEx1)[0].replace(/(<b>)|(<\/b>)/g, '').trim();
-      let str2 = listsRaw[i].match(regEx2)[0].replace(/(<\/b>)|(<\/li>)/g, '').trim();
-      
-      myObj.push([str1,str2]);
-    }
-    
-    const textRaw1 = textRaw[0].replace(/(<p class="ticket">)|(<\/p>)/g,'').trim();
-    const text = textRaw1.replace(/<br\/>/g,'\n').trim();
-
-    myObj.push([defaultString,text]);
-
-    console.log(myObj);
-  });
+  let message = getMessage();
+  console.log(message);
 });
