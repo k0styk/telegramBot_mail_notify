@@ -147,7 +147,7 @@ function getMessage() {
 
       const textRaw1 = textRaw[0].replace(/(<p class="ticket">)|(<\/p>)/g, '').trim();
       const text = textRaw1.replace(/<br\/>/g, '\n').trim();
-
+      myObj.push(defaultString,text);
       return myObj;
     } else if (ticket === defaultTickets[1]) {
 
