@@ -156,11 +156,29 @@ bot.onText(/\/show (.+)/,(msg, [source, match]) => {
 bot.onText(/\/try/,(msg, [source, match]) => {
   const {chat} = msg;
   fs.readFile('body_utf.txt','utf-8', (err,data) =>{
-    console.log(data);
     console.log("################################################################");
-    const liCode = /<li class="item">.+?<\/li>/;
-    liCode.lastIndex = 1500;
-    const ex = liCode.exec(data);
-    console.log(ex);
+    const liExp = /<li class="item">.+?<\/li>/ig;
+    const textExp = /<p class="ticket">.+?<\/p>/ig; 
+    const defaultString = 'Сообщение:';
+    const myObj = [];
+
+    const listsRaw = data.match(liExp);
+    const textRaw = data.match(textExp);
+
+    for (let i = 0; i < listsRaw.length - 1; i++) {
+      let regEx1 = /<b>.+?<\/b>/;
+      let regEx2 = /<\/b>.+?<\/li>/;
+      let str1 = listsRaw[i].match(regEx1)[0].replace(/(<b>)|(<\/b>)/g, '').trim();
+      let str2 = listsRaw[i].match(regEx2)[0].replace(/(<\/b>)|(<\/li>)/g, '').trim();
+      
+      myObj.push([str1,str2]);
+    }
+    
+    const textRaw1 = textRaw[0].replace(/(<p class="ticket">)|(<\/p>)/g,'').trim();
+    const text = textRaw1.replace(/<br\/>/g,'\n').trim();
+
+    myObj.push([defaultString,text]);
+
+    console.log(myObj);
   });
 });
