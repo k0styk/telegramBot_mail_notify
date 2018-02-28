@@ -73,7 +73,6 @@ function search(tag, markSeen = true) {
 imap.on('ready', () => {
   imap.openBox('INBOX', false, function (err, box) {
     if (err) throw err;
-    search('UNSEEN');
     timerId = setTimeout(function run() {
       search('UNSEEN');
       timerId = setTimeout(run, 10000);
