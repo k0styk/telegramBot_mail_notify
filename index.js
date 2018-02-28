@@ -15,64 +15,55 @@ const imapOptions = {
 const imap = new Imap(imapOptions);
 
 let _from = [];
-let _subject = [];
-let _to = [];
 let _body = []; 
 
 function search(tag, markSeen = true) {
   imap.search([tag], function (err, results) {
     if (err) throw err;
-
-    if (markSeen) {
+    if(results.length) {
+      if (markSeen) {
         imap.setFlags(results, ['\\Seen'], function (err) {
-            if (err) {
-                console.log(JSON.stringify(err, null, 2));
+          if (err) { console.log(err); }
+        });
+      }
+
+      let f = imap.fetch(results, { bodies: ['HEADER.FIELDS (FROM)', 'TEXT'], struct: true });
+      f.on('message', (msg, seqno) => {
+
+        msg.on('body', function (stream, info) {
+
+          let buffer = '';
+          stream.on('data', function (chunk) {
+            buffer += chunk.toString('utf-8');
+          });
+
+          stream.once('end', function () {
+            if (info.which === 'TEXT') {
+              let buff = new Buffer(buffer, 'base64');
+              _body.push(buff.toString('utf-8'));
+            } else {
+              let parsed = Imap.parseHeader(buffer);
+              if (parsed.from) _from.push(parsed.from[0]);
             }
-        });
-    }
-
-    let f = imap.fetch(results, { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)', 'TEXT'], struct: true});
-    f.on('message', (msg, seqno) => {
-
-      msg.on('body', function (stream, info) {
-
-        let buffer = '';
-        stream.on('data', function (chunk) {
-          buffer += chunk.toString('utf-8');
-        });
-
-        stream.once('end', function () {
-          if(info.which === 'TEXT') {  
-            let buff = new Buffer(buffer, 'base64');  
-            _body.push(buff.toString('utf-8'));
-          } else {
-            let parsed = Imap.parseHeader(buffer);
-            if (parsed.from) _from.push(parsed.from);
-            if (parsed.subject) _subject.push(parsed.subject);
-          }
+          });
         });
       });
-    });
 
-    f.once('error', function (err) {
-      console.log('Fetch error: ' + err);
-    });
+      f.once('error', function (err) {
+        console.log('Fetch error: ' + err);
+      });
 
-    f.once('end', function () {
-        printAll();
-        // imap.end();
-        // sendDataToChat();
-    });
-
+      f.once('end', function () {
+        sendAllMessages();
+      });
+  }
   });
 }
 
 imap.on('ready', () => {
   imap.openBox('INBOX', false, function (err, box) {
     if (err) throw err;
-    // delete false debug option
-    search('UNSEEN', false);
-
+    search('UNSEEN');
     imap.on('mail', numNewMsg => {
       search('UNSEEN');
     });
@@ -87,17 +78,9 @@ imap.once('end', function() {
   console.log('Connection ended');
 });
 
-function parseBody() {
-
-}
-
 function printAll() {
   console.log("From:");
   console.log(_from);
-  console.log("To:");
-  console.log(_to);
-  console.log("Subject:");
-  console.log(_subject);
   console.log("Body:");
   console.log(_body);
   //fs.writeFile('body_utf.txt',_body[0],'utf-8');
@@ -111,10 +94,31 @@ function stopListening() {
   imap.end();
 }
 
+function sendAllMessages() {
+  const from = _from.pop();
+  if(from) {
+    if (~from.indexOf('info@mclouds.ru')) {
+      const data = _body.pop();
+      if(data) {
+        sendDataToChat(data);
+      } else {
+        _body = [];
+      }
+    }
+  } else {
+    _from = [];
+    _body = [];
+  }
+  // for(let i=0;i<_from.length;i++) {
+  //   if(~(_from[i].indexOf('info@mclouds.ru'))) {
+  //     sendDataToChat(_body[i]);
+  //   }
+  // }
+}
+
 function sendDataToChat(data) {
   if(meow) {
     const arr = getMessage(data);
-    console.log(arr);
     const n = '\n';
     let resString = arr[0];
     for(let i=1;i<arr.length;i++){
@@ -190,23 +194,22 @@ function getMessage(data) {
     });
     let regEx1 = /<b>.+?<\/b>/;
     let regEx2 = /<\/b>.+?<\/p>/;
-    let str1 = listsRaw[i].match(regEx1)[0].replace(/(<b>)|(<\/b>)/g, '').trim();
-    let str2 = listsRaw[i].match(regEx2)[0].replace(/(<\/b>)|(<\/p>)/g, '').trim();
+    let str1 = listData[0].match(regEx1)[0].replace(/(<b>)|(<\/b>)/g, '').trim();
+    let str2 = listData[0].match(regEx2)[0].replace(/(<\/b>)|(<\/p>)/g, '').trim();
     myObj.push([str1, str2]);
-
     return myObj;
   } // Запрос закрыт сотрудником
   else if (ticket === defaultTickets[3]) {
     const p1Exp = /<p class="data">.+?<\/p>/ig;
     const listsRaw = data.match(p1Exp);
-    listsRaw.push(data.match(p2Exp)[0]);
-    listsRaw.splice(0, 1);
-
-    for (let i = 0; i < listsRaw.length; i++) {
+    const listData = listsRaw.filter((val) => {
+      return !~val.indexOf('Код');
+    });
+    for (let i = 0; i < listData.length; i++) {
       let regEx1 = /<b>.+?<\/b>/;
       let regEx2 = /<\/b>.+?<\/p>/;
-      let str1 = listsRaw[i].match(regEx1)[0].replace(/(<b>)|(<\/b>)/g, '').trim();
-      let str2 = listsRaw[i].match(regEx2)[0].replace(/(<\/b>)|(<\/p>)/g, '').trim();
+      let str1 = listData[i].match(regEx1)[0].replace(/(<b>)|(<\/b>)/g, '').trim();
+      let str2 = listData[i].match(regEx2)[0].replace(/(<\/b>)|(<\/p>)/g, '').trim();
       myObj.push([str1, str2]);
     }
     return myObj;
@@ -226,20 +229,21 @@ bot.onText(/\/start/,(msg, [source, match]) => {
   bot.sendMessage(msg.chat.id, '... WELCOME ...');
 });
 
-bot.onText(/\/startlisten/,(msg, [source, match]) => {
+bot.onText(/\/listen/,(msg, [source, match]) => {
   meow = msg.chat.id;
+  console.log('listen');
   startListening();
 });
 
-bot.onText(/\/stop/,(msg, [source, match]) => {
+bot.onText(/\/endlisten/,(msg, [source, match]) => {
   const {chat} = msg;
   stopListening();
 });
 
 bot.onText(/\/try/,(msg, [source, match]) => {
-  const {chat} = msg;
-  const data = fs.readFileSync('body_utf(2).txt', 'utf-8');
-  if(data) {
-    sendDataToChat(data);
-  }
+  // const {chat} = msg;
+  // const data = fs.readFileSync('body_utf(3).txt', 'utf-8');
+  // if(data) {
+  //   sendDataToChat(data);
+  // }
 });
