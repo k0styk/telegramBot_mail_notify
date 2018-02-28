@@ -13,9 +13,12 @@ const imapOptions = {
 }
 
 const imap = new Imap(imapOptions);
-
+let _message = [];
 let _from = [];
-let _body = []; 
+let _body = [];
+let _subject = [];
+let timerId = null;
+let chatId = null;
 
 function search(tag, markSeen = true) {
   imap.search([tag], function (err, results) {
@@ -27,7 +30,7 @@ function search(tag, markSeen = true) {
         });
       }
 
-      let f = imap.fetch(results, { bodies: ['HEADER.FIELDS (FROM)', 'TEXT'], struct: true });
+      let f = imap.fetch(results, { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)', 'TEXT'], struct: true });
       f.on('message', (msg, seqno) => {
 
         msg.on('body', function (stream, info) {
@@ -44,8 +47,10 @@ function search(tag, markSeen = true) {
             } else {
               let parsed = Imap.parseHeader(buffer);
               if (parsed.from) _from.push(parsed.from[0]);
+              if (parsed.subject) _subject.push(parsed.subject[0]);
             }
           });
+
         });
       });
 
@@ -54,6 +59,12 @@ function search(tag, markSeen = true) {
       });
 
       f.once('end', function () {
+        for(let i=0;i<_from.length;i++) {
+          _message.push({from: _from[i], subject: _subject[i], body: _body[i]});
+        }
+        _from = [];
+        _body = [];
+        _subject = [];
         sendAllMessages();
       });
   }
@@ -64,18 +75,32 @@ imap.on('ready', () => {
   imap.openBox('INBOX', false, function (err, box) {
     if (err) throw err;
     search('UNSEEN');
-    imap.on('mail', numNewMsg => {
+    timerId = setTimeout(function run() {
       search('UNSEEN');
-    });
+      timerId = setTimeout(run, 10000);
+    }, 10000);
   });
 });
 
+function clearData() {
+  if(timerId) {
+    clearTimeout(timerId);
+  }
+  timerId = null;
+  _message = [];
+  _from = [];
+  _body = [];
+  _subject = [];
+}
+
 imap.once('error', function(err) {
   console.log(err);
+  clearData();
 });
 
 imap.once('end', function() {
   console.log('Connection ended');
+  clearData();
 });
 
 function printAll() {
@@ -95,36 +120,43 @@ function stopListening() {
 }
 
 function sendAllMessages() {
-  const from = _from.pop();
-  if(from) {
-    if (~from.indexOf('info@mclouds.ru')) {
-      const data = _body.pop();
-      if(data) {
-        sendDataToChat(data);
+  try {
+    for (let i = 0; i < _message.length; i++) {
+      const message = _message[i];
+      if (message) {
+        if (~message.from.indexOf('info@mclouds.ru')) {
+          const data = message.body;
+          if (data) {
+            sendDataToChat(data);
+          } else { bot.sendMessage(chatId, 'Не могу прочитать тело письма'); }
+        } else {
+          const n = '\n';
+          const outputStr = '*Новое сообщение!*' + n + 'От: ' + message.from + n + 'Тема: ' + message.subject;
+          bot.sendMessage(chatId, outputStr, { parse_mode: 'Markdown' });
+        }
       } else {
-        _body = [];
+        bot.sendMessage(chatId, 'Что-то пошло не так, и это очень грустно ;(');
+        _message = [];
       }
     }
-  } else {
-    _from = [];
-    _body = [];
-  }
-  // for(let i=0;i<_from.length;i++) {
-  //   if(~(_from[i].indexOf('info@mclouds.ru'))) {
-  //     sendDataToChat(_body[i]);
-  //   }
-  // }
+    _message = [];
+ }catch(er) {
+   console.log(er);
+   _message=[];
+ }
 }
 
 function sendDataToChat(data) {
-  if(meow) {
-    const arr = getMessage(data);
-    const n = '\n';
-    let resString = arr[0];
-    for(let i=1;i<arr.length;i++){
-      resString = resString +n+arr[i][0]+' '+arr[i][1]+n;
-    }
-    bot.sendMessage(meow, resString);
+  if(chatId) {
+    try{
+      const arr = getMessage(data);
+      const n = '\n';
+      let resString ='_'+arr[0]+'_'+ n;
+      for (let i = 1; i < arr.length; i++) {
+        resString += '*'+arr[i][0]+'* ' + arr[i][1] + n;
+      }
+      bot.sendMessage(chatId, resString,{parse_mode:'Markdown'});
+    } catch(er) {console.log(er);}
   }
 }
 
@@ -222,15 +254,15 @@ function getMessage(data) {
 
 bot.on('message', msg => {});
 
-let meow = null;
+
 
 bot.onText(/\/start/,(msg, [source, match]) => {
-  meow = msg.chat.id;
+  chatId = msg.chat.id;
   bot.sendMessage(msg.chat.id, '... WELCOME ...');
 });
 
 bot.onText(/\/listen/,(msg, [source, match]) => {
-  meow = msg.chat.id;
+  chatId = msg.chat.id;
   console.log('listen');
   startListening();
 });
@@ -241,9 +273,7 @@ bot.onText(/\/endlisten/,(msg, [source, match]) => {
 });
 
 bot.onText(/\/try/,(msg, [source, match]) => {
-  // const {chat} = msg;
-  // const data = fs.readFileSync('body_utf(3).txt', 'utf-8');
-  // if(data) {
-  //   sendDataToChat(data);
-  // }
+  const {chat} = msg;
+  chatId = chat.id;
+  search('UNSEEN');
 });
