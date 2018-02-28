@@ -2,7 +2,6 @@ const config = require('./config/config');
 const Imap = require('imap');
 const TelegramBot = require('node-telegram-bot-api');
 const bot = new TelegramBot(config.getValue('token'), {polling: true});
-const fs = require('fs');
 
 const imapOptions = {
   user: config.getValue('user'),
@@ -103,14 +102,6 @@ imap.once('end', function() {
   clearData();
 });
 
-function printAll() {
-  console.log("From:");
-  console.log(_from);
-  console.log("Body:");
-  console.log(_body);
-  //fs.writeFile('body_utf.txt',_body[0],'utf-8');
-}
-
 function startListening() {
   imap.connect();
 }
@@ -131,11 +122,11 @@ function sendAllMessages() {
           } else { bot.sendMessage(chatId, 'Не могу прочитать тело письма'); }
         } else {
           const n = '\n';
-          const outputStr = '*Новое сообщение!*' + n + 'От: ' + message.from + n + 'Тема: ' + message.subject;
-          bot.sendMessage(chatId, outputStr, { parse_mode: 'Markdown' });
+          const outputStr = 'Новое сообщение!' + n + 'От: ' + message.from + n + 'Тема: ' + message.subject;
+          bot.sendMessage(chatId, outputStr);
         }
       } else {
-        bot.sendMessage(chatId, 'Что-то пошло не так, и это очень грустно ;(');
+        bot.sendMessage(chatId, '_Что-то пошло не так, и это очень грустно_ ;(',{parse_mode: 'Markdown'});
         _message = [];
       }
     }
@@ -254,15 +245,9 @@ function getMessage(data) {
 
 bot.on('message', msg => {});
 
-
-
-bot.onText(/\/start/,(msg, [source, match]) => {
-  chatId = msg.chat.id;
-  bot.sendMessage(msg.chat.id, '... WELCOME ...');
-});
-
 bot.onText(/\/listen/,(msg, [source, match]) => {
   chatId = msg.chat.id;
+  bot.sendMessage(chatId,'_Start listening_...',{parse_mode='Markdown'});
   console.log('listen');
   startListening();
 });
@@ -270,10 +255,4 @@ bot.onText(/\/listen/,(msg, [source, match]) => {
 bot.onText(/\/endlisten/,(msg, [source, match]) => {
   const {chat} = msg;
   stopListening();
-});
-
-bot.onText(/\/try/,(msg, [source, match]) => {
-  const {chat} = msg;
-  chatId = chat.id;
-  search('UNSEEN');
 });
