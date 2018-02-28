@@ -247,7 +247,7 @@ bot.on('message', msg => {});
 
 bot.onText(/\/listen/,(msg, [source, match]) => {
   chatId = msg.chat.id;
-  bot.sendMessage(chatId,'_Start listening_...',{parse_mode='Markdown'});
+  bot.sendMessage(chatId,'_Start listening_...',{parse_mode:'Markdown'});
   console.log('listen');
   startListening();
 });
