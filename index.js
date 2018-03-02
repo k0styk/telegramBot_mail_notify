@@ -1,3 +1,4 @@
+process.env["NTBA_FIX_319"] = 1;
 const config = require('./config/config');
 const Imap = require('imap');
 const TelegramBot = require('node-telegram-bot-api');
@@ -71,12 +72,16 @@ function search(tag, markSeen = true) {
 }
 
 imap.on('ready', () => {
+  console.log('Connection OK');
   imap.openBox('INBOX', false, function (err, box) {
-    if (err) throw err;
+    if (err) {
+      console.log("### Error open inbox:");
+      throw err;
+    }
     timerId = setTimeout(function run() {
       search('UNSEEN');
-      timerId = setTimeout(run, 10000);
-    }, 10000);
+      timerId = setTimeout(run, 15000);
+    }, 15000);
   });
 });
 
@@ -102,52 +107,73 @@ imap.once('end', function() {
 });
 
 function startListening() {
+  if(~imap.state.indexOf('auth') || imap.state === 'connected') {
+    return;
+  } 
   imap.connect();
+  bot.sendMessage(chatId,'_Start listening_...',{parse_mode:'Markdown'})
+    .catch(er => {
+      console.log('Не могу отправить сообщение #CODE128');
+      console.log(er);
+    });
 }
 
 function stopListening() {
-  imap.end();
+  if(~imap.state.indexOf('auth') || imap.state === 'connected') {
+    imap.end();
+    bot.sendMessage(chatId, '_Listening stopped_...', { parse_mode: 'Markdown' })
+      .catch(er => {
+        console.log('Не могу отправить сообщение #CODE129');
+        console.log(er);
+      });
+  }
 }
 
 function sendAllMessages() {
   try {
-    for (let i = 0; i < _message.length; i++) {
-      const message = _message[i];
+    let index = 0;
+    while (index < _message.length) {
+      const optionsMessage = {};
+      const message = _message[index];
+      let resMessage = '';
+
       if (message) {
         if (~message.from.indexOf('info@mclouds.ru')) {
           const data = message.body;
           if (data) {
-            sendDataToChat(data);
-          } else { bot.sendMessage(chatId, 'Не могу прочитать тело письма'); }
+            const arr = getMessage(data);
+            let resString = arr[0] + '\n';
+            for (let i = 1; i < arr.length; i++) {
+              resString += arr[i][0] + ' ' + arr[i][1] + '\n';
+            }
+            resMessage = resString;
+          } else {
+            resMessage = 'Не могу прочитать тело письма';
+          }
         } else {
-          const n = '\n';
-          const outputStr = 'Новое сообщение!' + n + 'От: ' + message.from + n + 'Тема: ' + message.subject;
-          bot.sendMessage(chatId, outputStr);
+          resMessage = 'Новое сообщение!\nОт: ' + message.from + '\nТема: ' + message.subject ? message.subject : 'Тема письма не установлена';
         }
       } else {
-        bot.sendMessage(chatId, '_Что-то пошло не так, и это очень грустно_ ;(',{parse_mode: 'Markdown'});
+        resMessage = '_Что-то пошло не так, и это очень грустно_ ;(';
+        optionsMessage['parse_mode'] = 'Markdown';
         _message = [];
       }
+      index++;
+      send(resMessage, optionsMessage)
+        .then(data => {
+          console.log(data);
+          console.log(index);
+        })
+        .catch(er => { throw new Error(er); });
     }
-    _message = [];
- }catch(er) {
-   console.log(er);
-   _message=[];
- }
+  } catch (er) {
+    console.log(er);
+  }
+  _message = [];
 }
 
-function sendDataToChat(data) {
-  if(chatId) {
-    try{
-      const arr = getMessage(data);
-      const n = '\n';
-      let resString ='_'+arr[0]+'_'+ n;
-      for (let i = 1; i < arr.length; i++) {
-        resString += '*'+arr[i][0]+'* ' + arr[i][1] + n;
-      }
-      bot.sendMessage(chatId, resString,{parse_mode:'Markdown'});
-    } catch(er) {console.log(er);}
-  }
+function send(data, options) {
+  return bot.sendMessage(chatId, data, options);
 }
 
 function getMessage(data) {
@@ -242,16 +268,16 @@ function getMessage(data) {
   }
 }
 
-bot.on('message', msg => {});
-
 bot.onText(/\/listen/,(msg, [source, match]) => {
   chatId = msg.chat.id;
-  bot.sendMessage(chatId,'_Start listening_...',{parse_mode:'Markdown'});
-  console.log('listen');
   startListening();
 });
 
 bot.onText(/\/endlisten/,(msg, [source, match]) => {
-  const {chat} = msg;
   stopListening();
+});
+
+bot.onText(/\/meow/, (msg, [source, match]) => {
+  chatId = msg.chat.id;
+  
 });
