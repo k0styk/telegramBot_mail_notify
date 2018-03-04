@@ -121,58 +121,56 @@ function stopListening() {
   }
 }
 
-function sendAllMessages() {
-  meow();
-  // try {
-  //   let message;
-  //   while (message = _message.pop()) {
-  //     const optionsMessage = {};
-  //     const message = _message[index];
-  //     let resMessage = '';
-
-  //     if (message) {
-  //       if (~message.from.indexOf('info@mclouds.ru')) {
-  //         const data = message.body;
-  //         if (data) {
-  //           const arr = getMessage(data);
-  //           let resString = arr[0] + '\n';
-  //           for (let i = 1; i < arr.length; i++) {
-  //             resString += arr[i][0] + ' ' + arr[i][1] + '\n';
-  //           }
-  //           resMessage = resString;
-  //         } else {
-  //           resMessage = 'Не могу прочитать тело письма';
-  //         }
-  //       } else {
-  //         resMessage = 'Новое сообщение!\nОт: ' + message.from + '\nТема: ' + message.subject ? message.subject : 'Тема письма не установлена';
-  //       }
-  //     } else {
-  //       resMessage = '_Что-то пошло не так, и это очень грустно_ ;(';
-  //       optionsMessage['parse_mode'] = 'Markdown';
-  //       _message = [];
-  //     }
-  //     index++;
-  //     send(resMessage, optionsMessage);
-  //   }
-  // } catch (er) {
-  //   console.log(er);
-  // }
-  // _message = [];
-}
-
+let index = 0;
 let chain = Promise.resolve();
-let results = [];
+function sendAllMessages() {
+  try {
+    _message.forEach((message)=> {
+      chain = chain
+        .then(() => {
+          index++;
+          const optionsMessage = {};
+          let resMessage = '';
 
-function meow() {
-  _message.forEach((msg)=> {
-    chain = chain
-      .then(() => send('_MEOW_',{parse_mode:'Markdown'}))
-      .then((result) => {
-        console.log(result);
-        results.push(result);
-      });
-  });
+          if (~message.from.indexOf('info@mclouds.ru')) {
+            const data = message.body;
+            if (data) {
+              const arr = getMessage(data);
+              let resString = arr[0] + '\n';
+              for (let i = 1; i < arr.length; i++) {
+                resString += arr[i][0] + ' ' + arr[i][1] + '\n';
+              }
+              resMessage = resString;
+            } else {
+              resMessage = 'Не могу прочитать тело письма';
+            }
+          } else {
+            resMessage = 'Новое сообщение!\nОт: ' + message.from + '\nТема: ' + message.subject ? message.subject : 'Тема письма не установлена';
+          }
+          return send(resMessage,optionsMessage);
+        })
+        .then((result) => {
+
+          console.log(result);
+          console.log(index);
+        });
+    });
+  } catch (er) {
+    console.log(er);
+  }
+  _message = [];
 }
+
+// function meow() {
+//   _message.forEach((msg)=> {
+//     chain = chain
+//       .then(() => send('_MEOW_',{parse_mode:'Markdown'}))
+//       .then((result) => {
+//         console.log(result);
+//         results.push(result);
+//       });
+//   });
+// }
 
 function send(data, options) {
   return bot.sendMessage(chatId, data, options);
@@ -281,4 +279,5 @@ bot.onText(/\/endlisten/,(msg, [source, match]) => {
 
 bot.onText(/\/meow/, (msg, [source, match]) => {
   chatId = msg.chat.id;
+  console.log(index);
 });
