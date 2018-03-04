@@ -79,7 +79,7 @@ imap.on('ready', () => {
       throw err;
     }
     timerId = setTimeout(function run() {
-      search('UNSEEN', { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)'], struct: true });
+      search('UNSEEN', { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)', 'TEXT'], struct: true });
       timerId = setTimeout(run, 15000);
     }, 15000);
   });
@@ -121,14 +121,12 @@ function stopListening() {
   }
 }
 
-let index = 0;
 let chain = Promise.resolve();
 function sendAllMessages() {
   try {
     _message.forEach((message)=> {
       chain = chain
         .then(() => {
-          index++;
           const optionsMessage = {};
           let resMessage = '';
 
@@ -149,28 +147,13 @@ function sendAllMessages() {
           }
           return send(resMessage,optionsMessage);
         })
-        .then((result) => {
-
-          console.log(result);
-          console.log(index);
-        });
+        .then((result) => { });
     });
   } catch (er) {
     console.log(er);
   }
   _message = [];
 }
-
-// function meow() {
-//   _message.forEach((msg)=> {
-//     chain = chain
-//       .then(() => send('_MEOW_',{parse_mode:'Markdown'}))
-//       .then((result) => {
-//         console.log(result);
-//         results.push(result);
-//       });
-//   });
-// }
 
 function send(data, options) {
   return bot.sendMessage(chatId, data, options);
@@ -275,9 +258,4 @@ bot.onText(/\/listen/,(msg, [source, match]) => {
 
 bot.onText(/\/endlisten/,(msg, [source, match]) => {
   stopListening();
-});
-
-bot.onText(/\/meow/, (msg, [source, match]) => {
-  chatId = msg.chat.id;
-  console.log(index);
 });
