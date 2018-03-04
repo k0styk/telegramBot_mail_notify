@@ -20,7 +20,7 @@ let _subject = [];
 let timerId = null;
 let chatId = null;
 
-function search(tag, markSeen = true) {
+function search(tag, options, markSeen = true) {
   imap.search([tag], function (err, results) {
     if (err) throw err;
     if(results.length) {
@@ -30,7 +30,7 @@ function search(tag, markSeen = true) {
         });
       }
 
-      let f = imap.fetch(results, { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)', 'TEXT'], struct: true });
+      let f = imap.fetch(results, options);
       f.on('message', (msg, seqno) => {
 
         msg.on('body', function (stream, info) {
@@ -79,7 +79,7 @@ imap.on('ready', () => {
       throw err;
     }
     timerId = setTimeout(function run() {
-      search('UNSEEN');
+      search('UNSEEN', { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)'], struct: true });
       timerId = setTimeout(run, 15000);
     }, 15000);
   });
@@ -111,21 +111,13 @@ function startListening() {
     return;
   } 
   imap.connect();
-  bot.sendMessage(chatId,'_Start listening_...',{parse_mode:'Markdown'})
-    .catch(er => {
-      console.log('Не могу отправить сообщение #CODE128');
-      console.log(er);
-    });
+  send('_Start listening_...',{parse_mode:'Markdown'});
 }
 
 function stopListening() {
   if(~imap.state.indexOf('auth') || imap.state === 'connected') {
     imap.end();
-    bot.sendMessage(chatId, '_Listening stopped_...', { parse_mode: 'Markdown' })
-      .catch(er => {
-        console.log('Не могу отправить сообщение #CODE129');
-        console.log(er);
-      });
+    send('_Listening stopped_...', { parse_mode: 'Markdown' });
   }
 }
 
@@ -167,29 +159,54 @@ function sendAllMessages() {
   _message = [];
 }
 
-getJSON('data.json')
-  .then(data => {
-    // addHtmlToPage(data.heading);
-    return data.reduce((sequence, chapterUrl) => {
-      return sequence.then(function () {
-        // …запросим следующую главу
-        return getJSON(chapterUrl);
-      }).then(chapter => {
-          // и добавим её на страницу
-          // addHtmlToPage(chapter.html);
-        });
-    }, Promise.resolve());
-  })
-  .then(function () {
-  // Всё успешно загрузилось!
+function meow() {
+  _message.forEach((msg)=> {
+    console.log(msg);
+  });
+}
+
+// // начало цепочки
+// let chain = Promise.resolve();
+
+// let results = [];
+
+// // в цикле добавляем задачи в цепочку
+// urls.forEach(function(url) {
+//   chain = chain
+//     .then(() => httpGet(url))
+//     .then((result) => {
+//       results.push(result);
+//     });
+// });
+
+// // в конце — выводим результаты
+// chain.then(() => {
+//   alert(results);
+// });
+
+// getJSON('data.json')
+//   .then(data => {
+//     // addHtmlToPage(data.heading);
+//     return data.reduce((sequence, chapterUrl) => {
+//       return sequence.then(function () {
+//         // …запросим следующую главу
+//         return getJSON(chapterUrl);
+//       }).then(chapter => {
+//           // и добавим её на страницу
+//           // addHtmlToPage(chapter.html);
+//         });
+//     }, Promise.resolve());
+//   })
+//   .then(function () {
+//   // Всё успешно загрузилось!
   
-}).catch(function(err) {
-  // Перехватываем любую ошибку, произошедшую в процессе
+// }).catch(function(err) {
+//   // Перехватываем любую ошибку, произошедшую в процессе
   
-}).then(function() {
-  // И всегда прячем индикатор в конце
+// }).then(function() {
+//   // И всегда прячем индикатор в конце
   
-});
+// });
 
 
 
@@ -300,5 +317,5 @@ bot.onText(/\/endlisten/,(msg, [source, match]) => {
 
 bot.onText(/\/meow/, (msg, [source, match]) => {
   chatId = msg.chat.id;
-  
+  meow();
 });
