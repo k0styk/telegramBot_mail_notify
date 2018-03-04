@@ -131,8 +131,8 @@ function stopListening() {
 
 function sendAllMessages() {
   try {
-    let index = 0;
-    while (index < _message.length) {
+    let message;
+    while (message = _message.pop()) {
       const optionsMessage = {};
       const message = _message[index];
       let resMessage = '';
@@ -159,18 +159,39 @@ function sendAllMessages() {
         _message = [];
       }
       index++;
-      send(resMessage, optionsMessage)
-        .then(data => {
-          console.log(data);
-          console.log(index);
-        })
-        .catch(er => { throw new Error(er); });
+      send(resMessage, optionsMessage);
     }
   } catch (er) {
     console.log(er);
   }
   _message = [];
 }
+
+getJSON('data.json')
+  .then(data => {
+    // addHtmlToPage(data.heading);
+    return data.reduce((sequence, chapterUrl) => {
+      return sequence.then(function () {
+        // …запросим следующую главу
+        return getJSON(chapterUrl);
+      }).then(chapter => {
+          // и добавим её на страницу
+          // addHtmlToPage(chapter.html);
+        });
+    }, Promise.resolve());
+  })
+  .then(function () {
+  // Всё успешно загрузилось!
+  
+}).catch(function(err) {
+  // Перехватываем любую ошибку, произошедшую в процессе
+  
+}).then(function() {
+  // И всегда прячем индикатор в конце
+  
+});
+
+
 
 function send(data, options) {
   return bot.sendMessage(chatId, data, options);
