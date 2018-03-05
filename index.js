@@ -261,7 +261,9 @@ bot.onText(/\/listen/,(msg, [source, match]) => {
 });
 
 bot.onText(/\/endlisten/,(msg, [source, match]) => {
-  stopListening();
+  if(chatId === msg.chat.id) {
+    stopListening();
+  }
 });
 
 bot.onText(/\/status/,(msg, [source, match]) => {
