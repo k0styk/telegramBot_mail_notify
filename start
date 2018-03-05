@@ -1,4 +1,4 @@
 echo Server starting...
 
-pm2 start index.js > /dev/null 2>&1
+pm2 start index.js --name "Telegram-Bot" > /dev/null 2>&1
 pm2 status

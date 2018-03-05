@@ -20,7 +20,32 @@ let _subject = [];
 let timerId = null;
 let chatId = null;
 
-function search(tag, markSeen = true) {
+imap.on('ready', () => {
+  console.log('Imap connected: '+Date());
+  imap.openBox('INBOX', false, function (err, box) {
+    if (err) {
+      console.log("### Error open inbox:");
+      throw err;
+    }
+    timerId = setTimeout(function run() {
+      search('UNSEEN', { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)', 'TEXT'], struct: true });
+      timerId = setTimeout(run, 15000);
+    }, 15000);
+  });
+});
+
+imap.once('error', function(err) {
+  console.log('IMAP ERROR');
+  console.log(err);
+  clearData();
+});
+
+imap.once('end', function() {
+  console.log('Imap disconnected: '+Date());
+  clearData();
+});
+
+function search(tag, options, markSeen = true) {
   imap.search([tag], function (err, results) {
     if (err) throw err;
     if(results.length) {
@@ -30,7 +55,7 @@ function search(tag, markSeen = true) {
         });
       }
 
-      let f = imap.fetch(results, { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)', 'TEXT'], struct: true });
+      let f = imap.fetch(results, options);
       f.on('message', (msg, seqno) => {
 
         msg.on('body', function (stream, info) {
@@ -71,20 +96,6 @@ function search(tag, markSeen = true) {
   });
 }
 
-imap.on('ready', () => {
-  console.log('Connection OK');
-  imap.openBox('INBOX', false, function (err, box) {
-    if (err) {
-      console.log("### Error open inbox:");
-      throw err;
-    }
-    timerId = setTimeout(function run() {
-      search('UNSEEN');
-      timerId = setTimeout(run, 15000);
-    }, 15000);
-  });
-});
-
 function clearData() {
   if(timerId) {
     clearTimeout(timerId);
@@ -96,76 +107,52 @@ function clearData() {
   _subject = [];
 }
 
-imap.once('error', function(err) {
-  console.log(err);
-  clearData();
-});
-
-imap.once('end', function() {
-  console.log('Connection ended');
-  clearData();
-});
-
 function startListening() {
   if(~imap.state.indexOf('auth') || imap.state === 'connected') {
     return;
   } 
   imap.connect();
-  bot.sendMessage(chatId,'_Start listening_...',{parse_mode:'Markdown'})
-    .catch(er => {
-      console.log('Не могу отправить сообщение #CODE128');
-      console.log(er);
-    });
+  send('_Start listening_...',{parse_mode:'Markdown'});
 }
 
 function stopListening() {
   if(~imap.state.indexOf('auth') || imap.state === 'connected') {
     imap.end();
-    bot.sendMessage(chatId, '_Listening stopped_...', { parse_mode: 'Markdown' })
-      .catch(er => {
-        console.log('Не могу отправить сообщение #CODE129');
-        console.log(er);
-      });
+    send('_Listening stopped_...', { parse_mode: 'Markdown' });
   }
 }
 
+let chain = Promise.resolve();
 function sendAllMessages() {
   try {
-    let index = 0;
-    while (index < _message.length) {
-      const optionsMessage = {};
-      const message = _message[index];
-      let resMessage = '';
+    _message.forEach((message)=> {
+      chain = chain
+        .then(() => {
+          const optionsMessage = {};
+          let resMessage = '';
 
-      if (message) {
-        if (~message.from.indexOf('info@mclouds.ru')) {
-          const data = message.body;
-          if (data) {
-            const arr = getMessage(data);
-            let resString = arr[0] + '\n';
-            for (let i = 1; i < arr.length; i++) {
-              resString += arr[i][0] + ' ' + arr[i][1] + '\n';
+          if (~message.from.indexOf('info@mclouds.ru')) {
+            const data = message.body;
+            if (data) {
+              const arr = getMessage(data);
+              let resString = arr[0] + '\n';
+              for (let i = 1; i < arr.length; i++) {
+                resString += arr[i][0] + ' ' + arr[i][1] + '\n';
+              }
+              resMessage = resString;
+            } else {
+              resMessage = 'Не могу прочитать тело письма';
             }
-            resMessage = resString;
           } else {
-            resMessage = 'Не могу прочитать тело письма';
+            resMessage = 'Новое сообщение!\nОт: ' + message.from + '\nТема: ' + message.subject ? message.subject : 'Тема письма не установлена';
           }
-        } else {
-          resMessage = 'Новое сообщение!\nОт: ' + message.from + '\nТема: ' + message.subject ? message.subject : 'Тема письма не установлена';
-        }
-      } else {
-        resMessage = '_Что-то пошло не так, и это очень грустно_ ;(';
-        optionsMessage['parse_mode'] = 'Markdown';
-        _message = [];
-      }
-      index++;
-      send(resMessage, optionsMessage)
-        .then(data => {
-          console.log(data);
-          console.log(index);
+          return send(resMessage,optionsMessage);
         })
-        .catch(er => { throw new Error(er); });
-    }
+        .then((result) => { })
+        .catch((er)=> {
+          console.log(er);
+        })
+    });
   } catch (er) {
     console.log(er);
   }
@@ -274,10 +261,12 @@ bot.onText(/\/listen/,(msg, [source, match]) => {
 });
 
 bot.onText(/\/endlisten/,(msg, [source, match]) => {
-  stopListening();
+  if(chatId === msg.chat.id) {
+    stopListening();
+  }
 });
 
-bot.onText(/\/meow/, (msg, [source, match]) => {
+bot.onText(/\/status/,(msg, [source, match]) => {
   chatId = msg.chat.id;
-  
+  send(imap.state);
 });
