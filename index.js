@@ -27,16 +27,12 @@ imap.on('ready', () => {
       console.log("### Error open inbox:");
       throw err;
     }
-    timerId = setTimeout(function run() {
-      search('UNSEEN', { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)', 'TEXT'], struct: true });
-      timerId = setTimeout(run, 15000);
-    }, 15000);
+    search('UNSEEN', { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)', 'TEXT'], struct: true });
   });
 });
 
 // Уведомление о новой задаче
 // Описание задачи: Инициировано продление услуги &quot;Infrastructure as a Service #14824&quot;.
-
 
 function decodeHTMLEntities(str) {
   const htmlEntity = [
@@ -62,7 +58,6 @@ imap.once('error', function(err) {
 
 imap.once('end', function() {
   console.log('Imap disconnected: '+Date());
-  clearData();
 });
 
 function search(tag, options, markSeen = true) {
@@ -111,6 +106,7 @@ function search(tag, options, markSeen = true) {
         _body = [];
         _subject = [];
         sendAllMessages();
+        imap.end();
       });
   }
   });
@@ -118,7 +114,7 @@ function search(tag, options, markSeen = true) {
 
 function clearData() {
   if(timerId) {
-    clearTimeout(timerId);
+    clearInterval(timerId);
   }
   timerId = null;
   _message = [];
@@ -130,14 +126,16 @@ function clearData() {
 function startListening() {
   if(~imap.state.indexOf('auth') || imap.state === 'connected') {
     return;
-  } 
-  imap.connect();
+  }
+  timerId = setInterval(()=>{
+    imap.connect();  
+  }, 30000);
   send('_Start listening_...',{parse_mode:'Markdown'});
 }
 
 function stopListening() {
   if(~imap.state.indexOf('auth') || imap.state === 'connected') {
-    imap.end();
+    clearData();
     send('_Listening stopped_...', { parse_mode: 'Markdown' });
   }
 }
