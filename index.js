@@ -34,6 +34,26 @@ imap.on('ready', () => {
   });
 });
 
+// Уведомление о новой задаче
+// Описание задачи: Инициировано продление услуги &quot;Infrastructure as a Service #14824&quot;.
+
+
+function decodeHTMLEntities(str) {
+  const htmlEntity = [
+    ['&quot;',`"`],
+    [`&apos;`,`'`],
+    [`&amp;`,`&`],
+    [`&lt;`,`<`],
+    [`&gt;`,`>`],
+    [`&nbsp;`,` `]
+  ];
+  htmlEntity.forEach((element)=> {
+    const re = new RegExp(element[0],'gi');
+    str = str.replace(re, element[1]);
+  });
+  return str;
+}
+
 imap.once('error', function(err) {
   console.log('IMAP ERROR');
   console.log(err);
@@ -160,7 +180,7 @@ function sendAllMessages() {
 }
 
 function send(data, options) {
-  return bot.sendMessage(chatId, data, options);
+  return bot.sendMessage(chatId, decodeHTMLEntities(data), options);
 }
 
 function getMessage(data) {
