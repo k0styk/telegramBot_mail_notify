@@ -20,6 +20,31 @@ let _subject = [];
 let timerId = null;
 let chatId = null;
 
+imap.on('ready', () => {
+  console.log('Imap connected: '+Date());
+  imap.openBox('INBOX', false, function (err, box) {
+    if (err) {
+      console.log("### Error open inbox:");
+      throw err;
+    }
+    timerId = setTimeout(function run() {
+      search('UNSEEN', { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)', 'TEXT'], struct: true });
+      timerId = setTimeout(run, 15000);
+    }, 15000);
+  });
+});
+
+imap.once('error', function(err) {
+  console.log('IMAP ERROR');
+  console.log(err);
+  clearData();
+});
+
+imap.once('end', function() {
+  console.log('Imap disconnected: '+Date());
+  clearData();
+});
+
 function search(tag, options, markSeen = true) {
   imap.search([tag], function (err, results) {
     if (err) throw err;
@@ -71,20 +96,6 @@ function search(tag, options, markSeen = true) {
   });
 }
 
-imap.on('ready', () => {
-  console.log('Connection OK');
-  imap.openBox('INBOX', false, function (err, box) {
-    if (err) {
-      console.log("### Error open inbox:");
-      throw err;
-    }
-    timerId = setTimeout(function run() {
-      search('UNSEEN', { bodies: ['HEADER.FIELDS (FROM)','HEADER.FIELDS (SUBJECT)', 'TEXT'], struct: true });
-      timerId = setTimeout(run, 15000);
-    }, 15000);
-  });
-});
-
 function clearData() {
   if(timerId) {
     clearTimeout(timerId);
@@ -95,16 +106,6 @@ function clearData() {
   _body = [];
   _subject = [];
 }
-
-imap.once('error', function(err) {
-  console.log(err);
-  clearData();
-});
-
-imap.once('end', function() {
-  console.log('Connection ended');
-  clearData();
-});
 
 function startListening() {
   if(~imap.state.indexOf('auth') || imap.state === 'connected') {
@@ -147,7 +148,10 @@ function sendAllMessages() {
           }
           return send(resMessage,optionsMessage);
         })
-        .then((result) => { });
+        .then((result) => { })
+        .catch((er)=> {
+          console.log(er);
+        })
     });
   } catch (er) {
     console.log(er);
@@ -258,4 +262,9 @@ bot.onText(/\/listen/,(msg, [source, match]) => {
 
 bot.onText(/\/endlisten/,(msg, [source, match]) => {
   stopListening();
+});
+
+bot.onText(/\/status/,(msg, [source, match]) => {
+  chatId = msg.chat.id;
+  send(imap.state);
 });
